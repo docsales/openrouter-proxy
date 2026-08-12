@@ -5,6 +5,7 @@ interface MessageCreateParamsBase {
   temperature?: number;
   tools?: any[];
   stream?: boolean;
+  max_tokens?: number;
 }
 
 
@@ -115,7 +116,7 @@ export function mapModel(anthropicModel: string): string {
 }
 
 export function formatAnthropicToOpenAI(body: MessageCreateParamsBase): any {
-  const { model, messages, system = [], temperature, tools, stream } = body;
+  const { model, messages, system = [], temperature, tools, stream, max_tokens } = body;
 
   const openAIMessages = Array.isArray(messages)
     ? messages.flatMap((anthropicMessage) => {
@@ -228,6 +229,16 @@ export function formatAnthropicToOpenAI(body: MessageCreateParamsBase): any {
     temperature,
     stream,
   };
+
+  if (max_tokens != null) {
+    data.max_tokens = max_tokens;
+  }
+
+  if (stream) {
+    // Without this, OpenRouter never sends a usage chunk and streamResponse.ts
+    // has nothing real to report — it was falling back to hardcoded numbers.
+    data.stream_options = { include_usage: true };
+  }
 
   if (tools) {
     data.tools = tools.map((item: any) => ({

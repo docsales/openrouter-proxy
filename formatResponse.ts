@@ -23,6 +23,10 @@ export function formatOpenAIToAnthropic(completion: any, model: string): any {
     stop_reason: completion.choices[0].finish_reason === 'tool_calls' ? "tool_use" : "end_turn",
     stop_sequence: null,
     model,
+    usage: {
+      input_tokens: completion.usage?.prompt_tokens ?? 0,
+      output_tokens: completion.usage?.completion_tokens ?? 0,
+    },
   };
   return result;
 }

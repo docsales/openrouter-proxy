@@ -19,7 +19,7 @@ export function streamOpenAIToAnthropic(openaiStream: ReadableStream, model: str
           model,
           stop_reason: null,
           stop_sequence: null,
-          usage: { input_tokens: 1, output_tokens: 1 },
+          usage: { input_tokens: 0, output_tokens: 0 },
         },
       };
       enqueueSSE(controller, "message_start", messageStart);
@@ -29,6 +29,16 @@ export function streamOpenAIToAnthropic(openaiStream: ReadableStream, model: str
       let isToolUse = false;
       let currentToolCallId: string | null = null;
       let toolCallJsonMap = new Map<string, string>();
+      let finalUsage = { input_tokens: 0, output_tokens: 0 };
+
+      const captureUsage = (parsed: any) => {
+        if (parsed?.usage) {
+          finalUsage = {
+            input_tokens: parsed.usage.prompt_tokens ?? finalUsage.input_tokens,
+            output_tokens: parsed.usage.completion_tokens ?? finalUsage.output_tokens,
+          };
+        }
+      };
 
       const reader = openaiStream.getReader();
       const decoder = new TextDecoder();
@@ -48,6 +58,7 @@ export function streamOpenAIToAnthropic(openaiStream: ReadableStream, model: str
                   
                   try {
                     const parsed = JSON.parse(data);
+                    captureUsage(parsed);
                     const delta = parsed.choices?.[0]?.delta;
                     if (delta) {
                       processStreamDelta(delta);
@@ -78,6 +89,7 @@ export function streamOpenAIToAnthropic(openaiStream: ReadableStream, model: str
               
               try {
                 const parsed = JSON.parse(data);
+                captureUsage(parsed);
                 const delta = parsed.choices?.[0]?.delta;
                 
                 if (!delta) continue;
@@ -192,7 +204,7 @@ export function streamOpenAIToAnthropic(openaiStream: ReadableStream, model: str
           stop_reason: isToolUse ? "tool_use" : "end_turn",
           stop_sequence: null,
         },
-        usage: { input_tokens: 100, output_tokens: 150 },
+        usage: finalUsage,
       });
 
       enqueueSSE(controller, "message_stop", {
