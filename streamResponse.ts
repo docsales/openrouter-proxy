@@ -30,6 +30,7 @@ export function streamOpenAIToAnthropic(openaiStream: ReadableStream, model: str
       let currentToolCallId: string | null = null;
       let toolCallJsonMap = new Map<string, string>();
       let finalUsage = { input_tokens: 0, output_tokens: 0 };
+      let finalFinishReason: string | null = null;
 
       const captureUsage = (parsed: any) => {
         if (parsed?.usage) {
@@ -37,6 +38,10 @@ export function streamOpenAIToAnthropic(openaiStream: ReadableStream, model: str
             input_tokens: parsed.usage.prompt_tokens ?? finalUsage.input_tokens,
             output_tokens: parsed.usage.completion_tokens ?? finalUsage.output_tokens,
           };
+        }
+        const reason = parsed?.choices?.[0]?.finish_reason;
+        if (reason) {
+          finalFinishReason = reason;
         }
       };
 
@@ -198,10 +203,16 @@ export function streamOpenAIToAnthropic(openaiStream: ReadableStream, model: str
       }
 
       // Send message_delta and message_stop
+      const streamStopReason =
+        finalFinishReason === 'length' ? 'max_tokens' :
+        finalFinishReason === 'tool_calls' ? 'tool_use' :
+        finalFinishReason ? 'end_turn' :
+        (isToolUse ? 'tool_use' : 'end_turn');
+
       enqueueSSE(controller, "message_delta", {
         type: "message_delta",
         delta: {
-          stop_reason: isToolUse ? "tool_use" : "end_turn",
+          stop_reason: streamStopReason,
           stop_sequence: null,
         },
         usage: finalUsage,

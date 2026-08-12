@@ -1,3 +1,9 @@
+function mapStopReason(finishReason: string): string {
+  if (finishReason === 'tool_calls') return 'tool_use';
+  if (finishReason === 'length') return 'max_tokens';
+  return 'end_turn';
+}
+
 export function formatOpenAIToAnthropic(completion: any, model: string): any {
   const messageId = "msg_" + Date.now();
 
@@ -20,7 +26,7 @@ export function formatOpenAIToAnthropic(completion: any, model: string): any {
     type: "message",
     role: "assistant",
     content: content,
-    stop_reason: completion.choices[0].finish_reason === 'tool_calls' ? "tool_use" : "end_turn",
+    stop_reason: mapStopReason(completion.choices[0].finish_reason),
     stop_sequence: null,
     model,
     usage: {
